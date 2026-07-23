@@ -1,0 +1,42 @@
+name: Publish to PowerShell Gallery
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install PSResourceGet
+        shell: pwsh
+        run: |
+          Install-PSResource -Name Microsoft.PowerShell.PSResourceGet `
+            -Repository PSGallery -TrustRepository -Reinstall
+
+      - name: Validate manifest version matches the release tag
+        shell: pwsh
+        run: |
+          # Tag is expected in the form 'v1.0.0' - strip the leading 'v'
+          $tag = '${{ github.event.release.tag_name }}' -replace '^v', ''
+          $manifest = Test-ModuleManifest -Path ./src/psZBX/psZBX.psd1
+          if ($manifest.Version.ToString() -ne $tag) {
+              Write-Host "::error::Manifest version $($manifest.Version) does not match release tag '$tag'"
+              exit 1
+          }
+          Write-Host "Version match: $tag"
+
+      - name: Publish to PowerShell Gallery
+        shell: pwsh
+        env:
+          PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }}
+        run: |
+          Publish-PSResource `
+            -Path ./src/psZBX `
+            -Repository PSGallery `
+            -ApiKey $env:PSGALLERY_API_KEY `
+            -Verbose

@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          Install-PSResource -Name PSScriptAnalyzer, Pester `
+            -Repository PSGallery -TrustRepository -Reinstall
+
+      - name: Validate module manifest
+        shell: pwsh
+        run: |
+          Test-ModuleManifest -Path ./src/psZBX/psZBX.psd1
+
+      - name: Run PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          $issues = Invoke-ScriptAnalyzer `
+            -Path ./src -Recurse `
+            -Settings ./PSScriptAnalyzerSettings.psd1
+          $issues | Format-Table -AutoSize
+          $errors = $issues | Where-Object Severity -eq 'Error'
+          if ($errors) {
+              Write-Host "::error::PSScriptAnalyzer reported $($errors.Count) Error-level issues"
+              exit 1
+          }
+
+      - name: Run Pester tests
+        shell: pwsh
+        run: |
+          $config = New-PesterConfiguration
+          $config.Run.Path        = './tests'
+          $config.Run.Exit        = $true
+          $config.Output.Verbosity = 'Detailed'
+          $config.TestResult.Enabled    = $true
+          $config.TestResult.OutputPath = 'testResults.xml'
+          Invoke-Pester -Configuration $config
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pester-results-${{ matrix.os }}
+          path: testResults.xml

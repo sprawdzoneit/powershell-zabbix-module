@@ -1,0 +1,31 @@
+# Local/secret files - NEVER commit
+*.local.ps1
+*.local.psd1
+secrets.json
+.env
+.env.*
+credentials.xml
+token.txt
+
+# Build / publish artifacts
+artifacts/
+*.nupkg
+
+# Test output
+TestResults.xml
+coverage.xml
+*.cover
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# PowerShell module cache (created by Update-Help, etc.)
+*.zip
+en-US/*.cab
